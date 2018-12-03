@@ -1,10 +1,15 @@
 import os
 import pickle
 import workerpool
-from urlparse import urlparse
+# from urlparse import urlparse
+from urllib.parse import urlparse
 import requests
 from PIL import Image
-from StringIO import StringIO
+# from StringIO import StringIO
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
 import traceback
 
 
@@ -27,10 +32,12 @@ class ParallelImageDownloader(object):
     def download_image(self,urlObj):
         if self.is_url(urlObj.url):
             try:
-                r = requests.get(urlObj.url, timeout=5)
-                if r.status_code == 200:
-                    i = Image.open(StringIO(r.content))
+                response = requests.get(urlObj.url, stream=True, timeout=20)
+                if response.status_code == 200:
+                    # i = Image.open(StringIO(r.content))
+                    i = Image.open(response.raw)
                     i.save(self.destination_path+"/"+urlObj.id+".jpg")
+                    
                 else:
                     return [r.status_code,urlObj]
             except:
@@ -45,14 +52,15 @@ class ParallelImageDownloader(object):
         errors = pool.map(self.download_image, urlObjects)
         pool.shutdown()
         pool.wait()
-        errors = filter((lambda x: x),errors)
+        # errors = filter((lambda x: x),errors)
+        errors = list(filter((lambda x: x),errors))
         print("Number of images sent for download "+str(len(urlObjects)))
         print("Number of images that failed "+str(len(errors)))
         return errors
 
 if __name__ == "__main__":
-    url_file_path = "/data/street2shop/photos/photos.txt"
-    dst_dir = "/data/street2shop/images/"
+    url_file_path = "/home/user/data/street2shop/photos.txt"
+    dst_dir = "/home/user/data/street2shop/images"
     images_downloaded = os.listdir(dst_dir)
     ids_downloaded = set([ x.split(".")[0] for x in images_downloaded])
     with open(url_file_path,'r') as urlFile:
